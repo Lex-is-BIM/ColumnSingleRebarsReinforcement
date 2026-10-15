@@ -1,0 +1,102 @@
+{
+  "metadata": {
+    "defaultName": "Армирование колонны",
+    "description": "Параметрическое армирование колонны: продольные стержни по углам прямоугольного сечения и поперечные стержни",
+    "version": "1.0.0",
+    "author": "Renga Software"
+  },
+  "styleParameters": [
+    {
+      "name": "ClearCovers",
+      "text": "Защитные слои",
+      "params": [
+        {
+          "name": "SideClearCover",
+          "text": "Защитный слой боковых граней",
+          "type": "Length",
+          "default": 25,
+          "min": 10,
+          "max": 100
+        },
+        {
+          "name": "BottomClearCover",
+          "text": "Защитный слой нижних граней",
+          "type": "Length",
+          "default": 0,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "TopClearCover",
+          "text": "Защитный слой верхних граней",
+          "type": "Length",
+          "default": 25,
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "name": "CageLongitudinalRebars",
+      "text": "Продольная арматура каркаса",
+      "params": [
+        {
+          "name": "RebarStyleId",
+          "text": "Арматурный стержень",
+          "type": "Id",
+          "entityTypeId": "608edb78-96f3-40a6-a0ec-71000105581b"
+        },
+        {
+          "name": "TopOverhangEnabled",
+          "text": "Выпуск арматуры сверху",
+          "type": "Boolean",
+          "default": false
+        },
+        {
+          "name": "TopOverhang",
+          "text": "Длина выпуска",
+          "type": "Length",
+          "default": 300,
+          "min": 0,
+          "max": 2000
+        },
+        {
+          "name": "FreeEnd",
+          "text": "Свободный конец",
+          "type": "Length",
+          "default": 25,
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "name": "CageTransverseRebars",
+      "text": "Поперечная арматура каркаса",
+      "params": [
+        {
+          "name": "RebarStyleId",
+          "text": "Арматурный стержень",
+          "type": "Id",
+          "entityTypeId": "608edb78-96f3-40a6-a0ec-71000105581b"
+        },
+        {
+          "name": "Step",
+          "text": "Шаг стержней",
+          "type": "Length",
+          "default": 200,
+          "min": 50,
+          "max": 500
+        },
+        {
+          "name": "FreeEnd",
+          "text": "Свободный конец",
+          "type": "Length",
+          "default": 25,
+          "min": 0,
+          "max": 100
+        }
+      ]
+    }
+  ]
+}
