@@ -1,34 +1,34 @@
 {
   "metadata": {
-    "defaultName": "Армирование колонны",
-    "description": "Параметрическое армирование колонны: продольные стержни по углам прямоугольного сечения и поперечные стержни",
+    "defaultName": "Column reinforcement with longitudinal and transverse rebars",
+    "description": "Longitudinal rebars at the corners of a rectangular column section, and transverse rebars laid out along the column height",
     "version": "1.0.0",
     "author": "Renga Software"
   },
   "styleParameters": [
     {
-      "name": "ClearCovers",
-      "text": "Защитные слои",
+      "name": "General",
+      "text": "General",
       "params": [
         {
-          "name": "SideClearCover",
-          "text": "Защитный слой боковых граней",
-          "type": "Length",
-          "default": 25,
-          "min": 10,
-          "max": 100
-        },
-        {
           "name": "BottomClearCover",
-          "text": "Защитный слой нижних граней",
+          "text": "Bottom clear cover",
           "type": "Length",
           "default": 0,
           "min": 0,
           "max": 100
         },
         {
+          "name": "SideClearCover",
+          "text": "Side clear cover",
+          "type": "Length",
+          "default": 25,
+          "min": 10,
+          "max": 100
+        },
+        {
           "name": "TopClearCover",
-          "text": "Защитный слой верхних граней",
+          "text": "Top clear cover",
           "type": "Length",
           "default": 25,
           "min": 0,
@@ -37,52 +37,52 @@
       ]
     },
     {
-      "name": "CageLongitudinalRebars",
-      "text": "Продольная арматура каркаса",
+      "name": "LongitudinalRebars",
+      "text": "Longitudinal rebars",
       "params": [
         {
           "name": "RebarStyleId",
-          "text": "Арматурный стержень",
+          "text": "Rebar style",
           "type": "Id",
           "entityTypeId": "608edb78-96f3-40a6-a0ec-71000105581b"
         },
         {
+          "name": "FreeEnd",
+          "text": "Free end",
+          "type": "Length",
+          "default": 25,
+          "min": 0,
+          "max": 100
+        },
+        {
           "name": "TopOverhangEnabled",
-          "text": "Выпуск арматуры сверху",
+          "text": "Enable top overhang",
           "type": "Boolean",
           "default": false
         },
         {
           "name": "TopOverhang",
-          "text": "Длина выпуска",
+          "text": "Top overhang length",
           "type": "Length",
           "default": 300,
           "min": 0,
           "max": 2000
-        },
-        {
-          "name": "FreeEnd",
-          "text": "Свободный конец",
-          "type": "Length",
-          "default": 25,
-          "min": 0,
-          "max": 100
         }
       ]
     },
     {
-      "name": "CageTransverseRebars",
-      "text": "Поперечная арматура каркаса",
+      "name": "TransverseRebars",
+      "text": "Transverse rebars",
       "params": [
         {
           "name": "RebarStyleId",
-          "text": "Арматурный стержень",
+          "text": "Rebar style",
           "type": "Id",
           "entityTypeId": "608edb78-96f3-40a6-a0ec-71000105581b"
         },
         {
           "name": "Step",
-          "text": "Шаг стержней",
+          "text": "Step",
           "type": "Length",
           "default": 200,
           "min": 50,
@@ -90,7 +90,7 @@
         },
         {
           "name": "FreeEnd",
-          "text": "Свободный конец",
+          "text": "Free end",
           "type": "Length",
           "default": 25,
           "min": 0,
