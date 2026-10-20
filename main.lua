@@ -1,23 +1,23 @@
 -- ============================================================
 -- Стиль армирования колонны: ColumnSingleRebars
--- Продольные стержни по углам + поперечные стержни по X и Y.
+-- Продольные стержни по углам + поперечные стержни по X и Y
+-- с раскладкой по высоте и опциональным выпуском продольных.
+-- Локальная СК: центр нижней грани, OZ' вдоль оси колонны.
 -- ============================================================
 
 function isSupportedProfile(profile)
   return GetTypeName(profile) == "RectangularProfile"
 end
 
-function getRebarDiameter(rebarStyleId)
-  local style = GetRebarStyle(rebarStyleId)
-  return GetParameterValue(style, "RebarDiameter")
-end
-
 function getRebarRadius(rebarStyleId)
-  return getRebarDiameter(rebarStyleId) / 2
+  local style = GetRebarStyle(rebarStyleId)
+  return GetParameterValue(style, "RebarDiameter") / 2
 end
 
-function getTransverseRebarOffset(sideClearCover, transverseRebarRadius)
-  return sideClearCover + transverseRebarRadius
+function getTransverseRebarOffset(sideClearCover,
+                                  transverseFreeEnd,
+                                  transverseRebarRadius)
+  return sideClearCover + transverseFreeEnd + transverseRebarRadius
 end
 
 function getLongitudinalRebarOffset(sideClearCover,
@@ -38,161 +38,15 @@ function SetStyleParameterStates(parameters)
 end
 
 -- ------------------------------------------------------------
--- Раскладка стержней по Z внутри отрезка fullLength.
--- Первый стержень на freeEnd от начала, последний на fullLength - freeEnd.
+-- Точка входа, вызываемая Renga.
 -- ------------------------------------------------------------
-function createRebarLayoutWithFreeEnd(container, rebarStyleId,
-                                      curve3D, fullLength, freeEnd, step)
-  local rebarRadius = getRebarRadius(rebarStyleId)
-
-  local length   = fullLength - freeEnd * 2
-  local number   = math.floor(length / step)
-  local lastStep = length - step * number
-
-  if lastStep < rebarRadius * 2 then
-    number = number - 1
-  end
-
-  -- Первый стержень: сдвиг на freeEnd от начала
-  curve3D:Shift(0, 0, freeEnd)
-  number = number + 1
-
-  if number < 5 then
-    local curve = curve3D:Clone()
-    for _ = 1, number do
-      container:AddRebar(rebarStyleId, curve)
-      curve:Shift(0, 0, step)
-    end
-  else
-    container:AddRebarSet(rebarStyleId, curve3D, Vector3D(0, 0, 1), step, number)
-  end
-
-  -- Последний стержень: на fullLength - freeEnd
-  curve3D:Shift(0, 0, length)
-  container:AddRebar(rebarStyleId, curve3D)
-end
-
--- ------------------------------------------------------------
--- 4 продольных стержня по углам прямоугольного сечения.
--- ------------------------------------------------------------
-function createLongitudinalRebars(container, rebarStyleId,
-                                  halfWidth, halfDepth,
-                                  offset,
-                                  zBottom, zTop)
-  local cornerX = halfWidth - offset
-  local cornerY = halfDepth - offset
-
-  if cornerX <= 0 or cornerY <= 0 then return end
-  if zTop <= zBottom then return end
-
-  local baseCurve = CreateLineSegment3D(
-    Point3D(0, 0, zBottom),
-    Point3D(0, 0, zTop)
-  )
-
-  local corners = {
-    { x = -cornerX, y = -cornerY },
-    { x = -cornerX, y =  cornerY },
-    { x =  cornerX, y = -cornerY },
-    { x =  cornerX, y =  cornerY },
-  }
-
-  for _, c in ipairs(corners) do
-    container:AddRebar(rebarStyleId, baseCurve:Clone():Shift(c.x, c.y, 0))
-  end
-end
-
--- ------------------------------------------------------------
--- Поперечные стержни, параллельные оси X.
--- fullLength = columnHeight - topCover - bottomCover.
--- freeEnd    = bottomCover + longitudinalFreeEnd + transverseRebarRadius.
--- ------------------------------------------------------------
-function createTransverseRebarsAlongX(container, rebarStyleId,
-                                      halfWidth, halfDepth,
-                                      columnHeight,
-                                      bottomCover, topCover,
-                                      sideClearCover,
-                                      transverseFreeEnd,
-                                      longitudinalFreeEnd,
-                                      transverseRebarRadius,
-                                      step)
-  local xStart = -halfWidth + sideClearCover
-  local xEnd   =  halfWidth - sideClearCover
-
-  local yOffset = halfDepth
-                - getTransverseRebarOffset(sideClearCover, transverseRebarRadius)
-                - transverseFreeEnd
-
-  if xEnd <= xStart or yOffset <= 0 then return end
-
-  local fullLength = columnHeight - topCover - bottomCover
-  if fullLength <= 0 then return end
-
-  local freeEnd = bottomCover + longitudinalFreeEnd + transverseRebarRadius
-
-  local curveMinusY = CreateLineSegment3D(
-    Point3D(xStart, -yOffset, 0),
-    Point3D(xEnd,   -yOffset, 0)
-  )
-  createRebarLayoutWithFreeEnd(container, rebarStyleId,
-                               curveMinusY, fullLength, freeEnd, step)
-
-  local curvePlusY = CreateLineSegment3D(
-    Point3D(xStart,  yOffset, 0),
-    Point3D(xEnd,    yOffset, 0)
-  )
-  createRebarLayoutWithFreeEnd(container, rebarStyleId,
-                               curvePlusY, fullLength, freeEnd, step)
-end
-
--- ------------------------------------------------------------
--- Поперечные стержни, параллельные оси Y.
--- fullLength = columnHeight - topCover - bottomCover.
--- freeEnd    = bottomCover + longitudinalFreeEnd + transverseRebarRadius * 3.
--- ------------------------------------------------------------
-function createTransverseRebarsAlongY(container, rebarStyleId,
-                                      halfWidth, halfDepth,
-                                      columnHeight,
-                                      bottomCover, topCover,
-                                      sideClearCover,
-                                      transverseFreeEnd,
-                                      longitudinalFreeEnd,
-                                      transverseRebarRadius,
-                                      step)
-  local yStart = -halfDepth + sideClearCover
-  local yEnd   =  halfDepth - sideClearCover
-
-  local xOffset = halfWidth
-                - getTransverseRebarOffset(sideClearCover, transverseRebarRadius)
-                - transverseFreeEnd
-
-  if yEnd <= yStart or xOffset <= 0 then return end
-
-  local fullLength = columnHeight - topCover - bottomCover
-  if fullLength <= 0 then return end
-
-  local freeEnd = bottomCover + longitudinalFreeEnd + transverseRebarRadius * 3
-
-  local curveMinusX = CreateLineSegment3D(
-    Point3D(-xOffset, yStart, 0),
-    Point3D(-xOffset, yEnd,   0)
-  )
-  createRebarLayoutWithFreeEnd(container, rebarStyleId,
-                               curveMinusX, fullLength, freeEnd, step)
-
-  local curvePlusX = CreateLineSegment3D(
-    Point3D( xOffset, yStart, 0),
-    Point3D( xOffset, yEnd,   0)
-  )
-  createRebarLayoutWithFreeEnd(container, rebarStyleId,
-                               curvePlusX, fullLength, freeEnd, step)
-end
-
--- ------------------------------------------------------------
--- Параметрическое армирование колонны.
--- ------------------------------------------------------------
-function parametricReinforcement(object, styleParameters)
+function CreateObjectReinforcement(object, styleParameters)
   local result = ReinforcementContainer()
+
+  local profile = GetSectionProfile(object)
+  if not isSupportedProfile(profile) then
+    return result
+  end
 
   -- Защитные слои
   local sideCover   = styleParameters.ClearCovers.SideClearCover
@@ -218,79 +72,110 @@ function parametricReinforcement(object, styleParameters)
   -- Параметры объекта
   local columnHeight = GetParameterValue(object, "ColumnHeight")
 
-  -- Профиль (гарантированно прямоугольник)
-  local profile   = GetSectionProfile(object)
+  -- Размеры сечения
   local halfWidth = profile.Width / 2
   local halfDepth = profile.Height / 2
 
-  -- Смещение продольного стержня от грани
-  local offset = getLongitudinalRebarOffset(
+  -- ---- Продольные стержни ----
+  local longOffset = getLongitudinalRebarOffset(
     sideCover,
     transverseFreeEnd,
     transverseRebarDiameter,
     longitudinalRebarRadius
   )
 
-  if offset >= halfWidth or offset >= halfDepth then
+  if longOffset >= halfWidth or longOffset >= halfDepth then
     return result
   end
 
-  -- Диапазон продольных стержней по Z
-  local zBottom = bottomCover
-  local zTop    = columnHeight - topCover
+  local cornerX = halfWidth - longOffset
+  local cornerY = halfDepth - longOffset
 
+  if cornerX <= 0 or cornerY <= 0 then
+    return result
+  end
+
+  local zBottomLong = bottomCover
+  local zTopLong    = columnHeight - topCover
   if topOverhangEnabled then
-    zTop = zTop + topOverhang
+    zTopLong = zTopLong + topOverhang
   end
 
-  if zTop <= zBottom then
+  if zTopLong <= zBottomLong then
     return result
   end
 
-  -- Продольные стержни по углам
-  createLongitudinalRebars(result,
-                           longitudinalRebarStyleId,
-                           halfWidth, halfDepth,
-                           offset,
-                           zBottom, zTop)
+  local baseCurve = CreateLineSegment3D(
+    Point3D(0, 0, zBottomLong),
+    Point3D(0, 0, zTopLong)
+  )
 
-  -- Поперечные стержни по X
-  createTransverseRebarsAlongX(result,
-                               transverseRebarStyleId,
-                               halfWidth, halfDepth,
-                               columnHeight,
-                               bottomCover, topCover,
-                               sideCover,
-                               transverseFreeEnd,
-                               longitudinalFreeEnd,
-                               transverseRebarRadius,
-                               transverseStep)
+  local corners = {
+    { x = -cornerX, y = -cornerY },
+    { x = -cornerX, y =  cornerY },
+    { x =  cornerX, y = -cornerY },
+    { x =  cornerX, y =  cornerY },
+  }
 
-  -- Поперечные стержни по Y
-  createTransverseRebarsAlongY(result,
-                               transverseRebarStyleId,
-                               halfWidth, halfDepth,
-                               columnHeight,
-                               bottomCover, topCover,
-                               sideCover,
-                               transverseFreeEnd,
-                               longitudinalFreeEnd,
-                               transverseRebarRadius,
-                               transverseStep)
+  for _, c in ipairs(corners) do
+    result:AddRebar(longitudinalRebarStyleId, baseCurve:Clone():Shift(c.x, c.y, 0))
+  end
+
+  -- ---- Поперечные стержни ----
+  local transverseOffset = getTransverseRebarOffset(sideCover,
+                                                    transverseFreeEnd,
+                                                    transverseRebarRadius)
+
+  local transverseHalfWidth = halfWidth - transverseOffset
+  local transverseHalfDepth = halfDepth - transverseOffset
+
+  if transverseHalfWidth <= 0 or transverseHalfDepth <= 0 then
+    return result
+  end
+
+  -- Начальные Z для X- и Y-стержней
+  local firstZAlongX = bottomCover + longitudinalFreeEnd + transverseRebarRadius
+  local firstZAlongY = bottomCover + longitudinalFreeEnd + transverseRebarRadius * 3
+
+  -- Верхняя граница раскладки (в выпуск поперечные не заходят)
+  local lastZ = columnHeight - topCover - longitudinalFreeEnd - transverseRebarRadius
+
+  if lastZ <= firstZAlongX or lastZ <= firstZAlongY then
+    return result
+  end
+
+  local xStart = -halfWidth + sideCover
+  local xEnd   =  halfWidth - sideCover
+  local yStart = -halfDepth + sideCover
+  local yEnd   =  halfDepth - sideCover
+
+  -- X-стержни: раскладка по Z с шагом transverseStep
+  local z = firstZAlongX
+  while z <= lastZ do
+    result:AddRebar(transverseRebarStyleId, CreateLineSegment3D(
+      Point3D(xStart, -transverseHalfDepth, z),
+      Point3D(xEnd,   -transverseHalfDepth, z)
+    ))
+    result:AddRebar(transverseRebarStyleId, CreateLineSegment3D(
+      Point3D(xStart, transverseHalfDepth, z),
+      Point3D(xEnd,   transverseHalfDepth, z)
+    ))
+    z = z + transverseStep
+  end
+
+  -- Y-стержни: раскладка по Z со сдвигом на диаметр
+  z = firstZAlongY
+  while z <= lastZ do
+    result:AddRebar(transverseRebarStyleId, CreateLineSegment3D(
+      Point3D(-transverseHalfWidth, yStart, z),
+      Point3D(-transverseHalfWidth, yEnd,   z)
+    ))
+    result:AddRebar(transverseRebarStyleId, CreateLineSegment3D(
+      Point3D(transverseHalfWidth, yStart, z),
+      Point3D(transverseHalfWidth, yEnd,   z)
+    ))
+    z = z + transverseStep
+  end
 
   return result
-end
-
--- ------------------------------------------------------------
--- Точка входа, вызываемая Renga.
--- ------------------------------------------------------------
-function CreateObjectReinforcement(object, styleParameters)
-  local result = ReinforcementContainer()
-
-  local profile = GetSectionProfile(object)
-  if not isSupportedProfile(profile) then
-    return result
-  end
-
-  return parametricReinforcement(object, styleParameters)
 end
