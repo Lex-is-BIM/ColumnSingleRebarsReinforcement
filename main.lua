@@ -18,6 +18,7 @@ function getTransverseRebarOffset(sideClearCover, transverseFreeEnd, transverseR
     return sideClearCover + transverseFreeEnd + transverseRebarRadius
 end
 
+
 -- Returns the offset of the longitudinal rebar from the side face.
 function getLongitudinalRebarOffset(sideClearCover, transverseFreeEnd,
                                     transverseRebarDiameter, longitudinalRebarRadius)
@@ -36,11 +37,6 @@ function getCornerPositions(halfWidth, halfDepth, offset)
 end
 
 -- The function creates longitudinal rebars at the four corners of the column section.
--- container - Reinforcement container
--- rebarStyleId - the style ID of the rebar
--- halfWidth, halfDepth - the half the column width and depth
--- offset - the offset from the column face
--- bottomZ, topZ - bottom and top elevations of the longitudinal rebars
 function createLongitudinalRebars(container, rebarStyleId,
                                   halfWidth, halfDepth,
                                   offset,
@@ -54,15 +50,7 @@ function createLongitudinalRebars(container, rebarStyleId,
 end
 
 -- The function creates transverse rebars along the X and Y axes,
--- laid out along the column height with the specified step.
--- container - Reinforcement container
--- rebarStyleId - the style ID of the rebar
--- halfWidth, halfDepth - the half the column width and depth
--- sideCover - side clear cover
--- transverseHalfWidth, transverseHalfDepth - half sizes for transverse rebars
--- firstZAlongX, firstZAlongY - initial elevations for X and Y rebars
--- lastZ - upper bound of the layout
--- step - the layout step
+-- laid out along the column height as rebar sets with the specified step.
 function createTransverseRebars(container, rebarStyleId,
                                 halfWidth, halfDepth,
                                 sideCover,
@@ -74,32 +62,26 @@ function createTransverseRebars(container, rebarStyleId,
     local yStart = -halfDepth + sideCover
     local yEnd   =  halfDepth - sideCover
 
-    -- Rebars along X, laid out along Z
-    local z = firstZAlongX
-    while z <= lastZ do
-        container:AddRebar(rebarStyleId, CreateLineSegment3D(
-            Point3D(xStart, -transverseHalfDepth, z),
-            Point3D(xEnd,   -transverseHalfDepth, z)
-        ))
-        container:AddRebar(rebarStyleId, CreateLineSegment3D(
-            Point3D(xStart,  transverseHalfDepth, z),
-            Point3D(xEnd,    transverseHalfDepth, z)
-        ))
-        z = z + step
+    -- Rebars along X, laid out along Z via RebarSet
+    if firstZAlongX <= lastZ then
+        local countX = math.floor((lastZ - firstZAlongX) / step) + 1
+        if countX > 0 then
+            local curveX1 = CreateLineSegment3D(Point3D(xStart, -transverseHalfDepth, firstZAlongX), Point3D(xEnd, -transverseHalfDepth, firstZAlongX))
+            local curveX2 = CreateLineSegment3D(Point3D(xStart,  transverseHalfDepth, firstZAlongX), Point3D(xEnd,  transverseHalfDepth, firstZAlongX))
+            container:AddRebarSet(rebarStyleId, curveX1, Vector3D(0, 0, 1), step, countX)
+            container:AddRebarSet(rebarStyleId, curveX2, Vector3D(0, 0, 1), step, countX)
+        end
     end
 
-    -- Rebars along Y, laid out along Z with an offset by rebar diameter
-    z = firstZAlongY
-    while z <= lastZ do
-        container:AddRebar(rebarStyleId, CreateLineSegment3D(
-            Point3D(-transverseHalfWidth, yStart, z),
-            Point3D(-transverseHalfWidth, yEnd,   z)
-        ))
-        container:AddRebar(rebarStyleId, CreateLineSegment3D(
-            Point3D( transverseHalfWidth, yStart, z),
-            Point3D( transverseHalfWidth, yEnd,   z)
-        ))
-        z = z + step
+    -- Rebars along Y, laid out along Z via RebarSet
+    if firstZAlongY <= lastZ then
+        local countY = math.floor((lastZ - firstZAlongY) / step) + 1
+        if countY > 0 then
+            local curveY1 = CreateLineSegment3D(Point3D(-transverseHalfWidth, yStart, firstZAlongY), Point3D(-transverseHalfWidth, yEnd, firstZAlongY))
+            local curveY2 = CreateLineSegment3D(Point3D( transverseHalfWidth, yStart, firstZAlongY), Point3D( transverseHalfWidth, yEnd, firstZAlongY))
+            container:AddRebarSet(rebarStyleId, curveY1, Vector3D(0, 0, 1), step, countY)
+            container:AddRebarSet(rebarStyleId, curveY2, Vector3D(0, 0, 1), step, countY)
+        end
     end
 end
 
@@ -129,10 +111,11 @@ function CreateObjectReinforcement(object, styleParameters)
     local transverseFreeEnd   = styleParameters.TransverseRebars.FreeEnd
     local transverseStep      = styleParameters.TransverseRebars.Step
 
-    -- rebar radii
+    -- rebar radius
     local longitudinalRebarRadius = getRebarRadius(longitudinalRebarId)
     local transverseRebarRadius   = getRebarRadius(transverseRebarId)
     local transverseRebarDiameter = transverseRebarRadius * 2
+print(longitudinalRebarId)
 
     -- column parameters
     local columnHeight = GetParameterValue(object, "ColumnHeight")
@@ -145,16 +128,19 @@ function CreateObjectReinforcement(object, styleParameters)
     local longitudinalOffset = getLongitudinalRebarOffset(
         sideCover, transverseFreeEnd, transverseRebarDiameter, longitudinalRebarRadius)
 
-    if longitudinalOffset >= halfWidth or longitudinalOffset >= halfDepth then
+    -- Проверка: отступ с двух сторон не должен превышать или быть равен габариту сечения,
+    -- иначе угловые стержни пересекаются друг с другом
+    if (longitudinalOffset * 2) >= profile.Width or (longitudinalOffset * 2) >= profile.Height then
         return result
     end
 
     -- longitudinal rebars elevations
     local bottomZ = bottomCover
-    local topZ    = columnHeight - topCover
-
+    local topZ    = columnHeight
     if topOverhangEnabled then
         topZ = topZ + topOverhang
+    else
+        topZ = topZ - topCover
     end
 
     if topZ <= bottomZ then
@@ -182,7 +168,10 @@ function CreateObjectReinforcement(object, styleParameters)
     local firstZAlongY = bottomCover + longitudinalFreeEnd + transverseRebarRadius * 3
 
     -- upper bound of the layout (transverse rebars do not go into the overhang)
-    local lastZ = columnHeight - topCover - longitudinalFreeEnd - transverseRebarRadius
+    local lastZ = columnHeight - longitudinalFreeEnd - transverseRebarRadius
+    if not topOverhangEnabled then
+        lastZ = lastZ - topCover
+    end
 
     if lastZ <= firstZAlongX or lastZ <= firstZAlongY then
         return result
